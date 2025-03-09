@@ -196,32 +196,31 @@ class _DiseaseDetectionScreenState extends State<DiseaseDetectionScreen> {
   String? _backendResponse;
   bool _isLoading = false;
 
-  Future<void> _testConnection() async {
-    const url = 'http://10.100.240.189:5002/test'; // Update Flask API URL
-    setState(() {
-      _isLoading = true;
-      _backendResponse = null;
-    });
-    try {
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode == 200) {
-        final decodedResponse = json.decode(response.body);
-        setState(() {
-          _backendResponse = decodedResponse['message']; // Should return "test string"
-          _isLoading = false;
-        });
-      } else {
-        throw Exception('Failed to connect to API: ${response.statusCode}');
-      }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _backendResponse = 'Error connecting to API: $e';
-      });
-    }
-  }
-
-  Future<void> _pickImageFromGallery() async {
+  // Future<void> _testConnection() async {
+  //   const url = 'http://127.0.0.1:5002/test'; // Update Flask API URL
+  //   setState(() {
+  //     _isLoading = true;
+  //     _backendResponse = null;
+  //   });
+  //   try {
+  //     final response = await http.get(Uri.parse(url));
+  //     if (response.statusCode == 200) {
+  //       final decodedResponse = json.decode(response.body);
+  //       setState(() {
+  //         _backendResponse = decodedResponse['message']; // Should return "test string"
+  //         _isLoading = false;
+  //       });
+  //     } else {
+  //       throw Exception('Failed to connect to API: ${response.statusCode}');
+  //     }
+  //   } catch (e) {
+  //     setState(() {
+  //       _isLoading = false;
+  //       _backendResponse = 'Error connecting to API: $e';
+  //     });
+  //   }
+  // }
+Future<void> _pickImageFromGallery() async {
     final returnedImage =
         await ImagePicker().pickImage(source: ImageSource.gallery);
 
@@ -260,6 +259,50 @@ class _DiseaseDetectionScreenState extends State<DiseaseDetectionScreen> {
       });
     }
   }
+Future<void> _testConnection() async {
+    const url = 'http://127.0.0.1:5003/predict'; // Flask API URL
+
+    setState(() {
+      _isLoading = true;
+      _backendResponse = null;
+    });
+
+    try {
+      var request = http.MultipartRequest('POST', Uri.parse(url));
+      if (_selectedImageFile != null) {
+        request.files.add(await http.MultipartFile.fromPath(
+          'image', // Name of the field expected by the backend
+          _selectedImageFile!.path,
+        ));
+      } else if (_selectedImageBytes != null) {
+        request.files.add(http.MultipartFile.fromBytes(
+          'image', // Name of the field expected by the backend
+          _selectedImageBytes!,
+          filename: 'image.png', // You can set a filename for the uploaded image
+        ));
+      }
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        final decodedResponse = json.decode(response.body);
+        setState(() {
+          _backendResponse = decodedResponse["predicted_label"] ; // Response from Flask
+          _isLoading = false;
+        });
+    } else {
+      throw Exception('Failed to connect to API: ${response.statusCode}');
+    }
+  } catch (e) {
+    setState(() {
+      _isLoading = false;
+      _backendResponse = 'Error connecting to API: $e';
+    });
+  }
+}
+
+  
 
   @override
   Widget build(BuildContext context) {
